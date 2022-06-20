@@ -52,9 +52,8 @@ fn main() {
         uniform vec2 mouse;
         
         void main() {
-            pos = position;        
-        
-            gl_Position = vec4(position, 0.0, 1.0);
+            pos = position;
+            gl_Position = vec4(pos, 0.0, 1.0);
         }
     "#;
 
@@ -65,14 +64,40 @@ fn main() {
         
         uniform float time;
         uniform vec2 mouse;
+        uniform float width;
+        uniform float height;
         
-        void main() {
-            color = vec4(
-                (sin((pos.x + time)) + 1) / 2,
-                (sin((pos.y + time)) + 1) / 2,
-                (cos((pos.y + pos.x + time)) + 1) / 2,
-                1.0
-            );
+        vec4 circle_dot(vec2 uv, vec2 center) {
+            #define PI 3.1415926538
+            
+            float width = 0.1;
+        
+            float angle = PI/4 * time;
+        
+            float circle = (width/2) - abs(length(uv) - (1 - width / 2));
+            circle = circle / fwidth(circle);
+
+            vec2 uv_rot = vec2(uv.x * cos(angle) - uv.y * sin(angle), uv.x * sin(angle) + uv.y * cos(angle));
+            float rot_circle = 0.15 - abs(length(uv_rot - vec2(0.672, 0.672)));
+            rot_circle = rot_circle / fwidth(rot_circle);
+            
+            vec3 fg = vec3(1.0, 0.0, 0.0);
+            vec3 fg2 = vec3(1.0, 1.0, 1.0);
+            vec3 bg = vec3(0.0, 0.0, 0.0);
+            
+            if (clamp(rot_circle, 0, 1) >= clamp(circle, 0, 1)) {
+                return vec4(rot_circle * fg, 1.0);
+            } else {
+                return vec4(circle * fg2, 1.0);            
+            }
+        }
+        
+        void main() {            
+            vec2 uv = pos / normalize(vec2(height, width));
+            float angle = PI/4 * time;
+            vec2 uv_rot = vec2(uv.x * cos(angle) - uv.y * sin(angle), uv.x * sin(angle) + uv.y * cos(angle));
+
+            color = circle_dot(uv, vec2(0, 0));
         }
     "#;
 
@@ -104,15 +129,15 @@ fn main() {
                     position,
                     ..
                 } => {
-                    mouse_position[0] = (position.x as f32) / (display_size.width as f32);
-                    mouse_position[1] = (position.y as f32) / (display_size.height as f32);
+                    mouse_position[0] = position.x as f32;
+                    mouse_position[1] = (display_size.height as f32) - (position.y as f32);
                     return;
                 }
                 _ => return,
             },
             glutin::event::Event::MainEventsCleared => {
                 let mut target = display.draw();
-                target.clear_color(0.0, 0.0, 0.0, 1.0);
+                target.clear_color(0.0, 0.0, 1.0, 1.0);
                 target
                     .draw(
                         &vertex_buffer,
@@ -120,7 +145,9 @@ fn main() {
                         &program,
                         &uniform! {
                             time: now.duration_since(start_time).as_secs_f32(),
-                            mouse: mouse_position
+                            mouse: mouse_position,
+                            width: display_size.width as f32,
+                            height: display_size.height as f32
                         },
                         &Default::default(),
                     )
