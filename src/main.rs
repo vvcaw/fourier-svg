@@ -70,15 +70,17 @@ fn main() {
         vec4 circle_dot(vec2 uv, vec2 center) {
             #define PI 3.1415926538
             
-            float width = 0.1;
+            float radius = 0.4;
+            float thickness = 0.02;
         
             float angle = PI/4 * time;
         
-            float circle = (width/2) - abs(length(uv) - (1 - width / 2));
+            float circle = abs(length(uv - center) - radius) - thickness;
             circle = circle / fwidth(circle);
 
-            vec2 uv_rot = vec2(uv.x * cos(angle) - uv.y * sin(angle), uv.x * sin(angle) + uv.y * cos(angle));
-            float rot_circle = 0.15 - abs(length(uv_rot - vec2(0.672, 0.672)));
+            vec2 uv_rot = vec2((uv.x - center.x) * cos(angle) - (uv.y - center.y) * sin(angle), (uv.x - center.x) * sin(angle) + (uv.y - center.y) * cos(angle));
+            
+            float rot_circle = thickness - abs(length(uv_rot - vec2(0.4, 0.0)));
             rot_circle = rot_circle / fwidth(rot_circle);
             
             vec3 fg = vec3(1.0, 0.0, 0.0);
@@ -97,7 +99,7 @@ fn main() {
             float angle = PI/4 * time;
             vec2 uv_rot = vec2(uv.x * cos(angle) - uv.y * sin(angle), uv.x * sin(angle) + uv.y * cos(angle));
 
-            color = circle_dot(uv, vec2(0, 0));
+            color = circle_dot(uv_rot, vec2(0.4, 0)) * circle_dot(uv, vec2(0, 0));
         }
     "#;
 
