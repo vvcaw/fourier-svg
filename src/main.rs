@@ -67,39 +67,72 @@ fn main() {
         uniform float width;
         uniform float height;
         
-        vec4 circle_dot(vec2 uv, vec2 center) {
+        struct FourierCircle {
+            float angle;
+            float radius;
+        };
+        
+        struct CircleDotReturn {
+            vec2 coords;
+            vec4 color;        
+        };
+        
+        CircleDotReturn circle_dot(vec2 uv, vec2 last_offset, FourierCircle f_circle, vec4 color) {
             #define PI 3.1415926538
-            
-            float radius = 0.4;
+
             float thickness = 0.02;
         
             float angle = PI/4 * time;
         
-            float circle = abs(length(uv - center) - radius) - thickness;
+            float circle = abs(length(uv - last_offset) - f_circle.radius) - thickness;
             circle = circle / fwidth(circle);
 
-            vec2 uv_rot = vec2((uv.x - center.x) * cos(angle) - (uv.y - center.y) * sin(angle), (uv.x - center.x) * sin(angle) + (uv.y - center.y) * cos(angle));
+            vec2 uv_rot = vec2((uv.x - last_offset.x) * cos(angle) - (uv.y - last_offset.y) * sin(angle), (uv.x - last_offset.x) * sin(angle) + (uv.y - last_offset.y) * cos(angle));
             
-            float rot_circle = thickness - abs(length(uv_rot - vec2(0.4, 0.0)));
+            float rot_circle = thickness - abs(length(uv_rot - vec2(f_circle.radius, 0.0)));
             rot_circle = rot_circle / fwidth(rot_circle);
             
             vec3 fg = vec3(1.0, 0.0, 0.0);
             vec3 fg2 = vec3(1.0, 1.0, 1.0);
             vec3 bg = vec3(0.0, 0.0, 0.0);
             
+            vec4 col = vec4(0);
+            
             if (clamp(rot_circle, 0, 1) >= clamp(circle, 0, 1)) {
-                return vec4(rot_circle * fg, 1.0);
+                col = vec4(rot_circle * fg, 1.0);
             } else {
-                return vec4(circle * fg2, 1.0);            
+                col = vec4(circle * fg2, 1.0);
             }
+            
+            if (true) {
+                color = col;
+            }
+            
+            return CircleDotReturn(uv_rot,color);
         }
         
         void main() {            
             vec2 uv = pos / normalize(vec2(height, width));
-            float angle = PI/4 * time;
-            vec2 uv_rot = vec2(uv.x * cos(angle) - uv.y * sin(angle), uv.x * sin(angle) + uv.y * cos(angle));
-
-            color = circle_dot(uv_rot, vec2(0.4, 0)) * circle_dot(uv, vec2(0, 0));
+            
+            FourierCircle[3] circles;
+            circles[0] = FourierCircle(0, 0.4);
+            circles[1] = FourierCircle(0, 0.5);
+            circles[2] = FourierCircle(0, 0.2);
+            
+            CircleDotReturn r;
+            
+            vec4 c;
+            
+            r = circle_dot(uv, vec2(0, 0), circles[0], color);
+            c = r.color;
+            
+            r = circle_dot(r.coords, vec2(circles[0].radius, 0), circles[1], color);
+            c *= r.color;
+            
+            r = circle_dot(r.coords, vec2(circles[1].radius, 0), circles[2], color);
+            c *= r.color;
+            
+            color = c;
         }
     "#;
 
