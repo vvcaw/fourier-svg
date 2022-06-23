@@ -98,17 +98,13 @@ fn main() {
             
             vec4 col = vec4(0);
             
-            if (clamp(rot_circle, 0, 1) >= clamp(circle, 0, 1)) {
+            if (rot_circle >= circle) {
                 col = vec4(rot_circle * fg, 1.0);
             } else {
                 col = vec4(circle * fg2, 1.0);
             }
             
-            if (true) {
-                color = col;
-            }
-            
-            return CircleDotReturn(uv_rot,color);
+            return CircleDotReturn(uv_rot, col);
         }
         
         void main() {            
@@ -119,18 +115,26 @@ fn main() {
             circles[1] = FourierCircle(0, 0.5);
             circles[2] = FourierCircle(0, 0.2);
             
-            CircleDotReturn r;
+            int size = 3;
             
             vec4 c;
+            CircleDotReturn r;
             
-            r = circle_dot(uv, vec2(0, 0), circles[0], color);
-            c = r.color;
-            
-            r = circle_dot(r.coords, vec2(circles[0].radius, 0), circles[1], color);
-            c *= r.color;
-            
-            r = circle_dot(r.coords, vec2(circles[1].radius, 0), circles[2], color);
-            c *= r.color;
+            for (int i = 0; i < size; ++i) {
+                if (i == 0) {
+                    r = circle_dot(uv, vec2(0, 0), circles[0], color);
+                    c = r.color;                    
+                } else {
+                    r = circle_dot(r.coords, vec2(circles[i - 1].radius, 0), circles[i], color);
+                    
+                    // Check if color is red
+                    if (r.color.r > 0 && r.color.g == 0 && r.color.b == 0) {
+                        c = r.color;
+                    } else {
+                        c = vec4(min(c.r, r.color.r), min(c.g, r.color.g), min(c.b, r.color.b), min(c.a, r.color.a));                    
+                    }
+                }
+            }
             
             color = c;
         }
