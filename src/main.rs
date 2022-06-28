@@ -77,12 +77,12 @@ fn main() {
             vec4 color;        
         };
         
-        CircleDotReturn circle_dot(vec2 uv, vec2 last_offset, FourierCircle f_circle, vec4 color) {
+        CircleDotReturn circle_dot(vec2 uv, vec2 last_offset, FourierCircle f_circle, vec4 color, float time_des) {
             #define PI 3.1415926538
 
             float thickness = 0.02;
         
-            float angle = PI/4 * time;
+            float angle = PI/4 * time_des;
         
             float circle = abs(length(uv - last_offset) - f_circle.radius) - thickness;
             circle = circle / fwidth(circle);
@@ -120,12 +120,13 @@ fn main() {
             vec4 c;
             CircleDotReturn r;
             
+            // Plot all circles with center dots
             for (int i = 0; i < size; ++i) {
                 if (i == 0) {
-                    r = circle_dot(uv, vec2(0, 0), circles[0], color);
+                    r = circle_dot(uv, vec2(0, 0), circles[0], color, time);
                     c = r.color;                    
                 } else {
-                    r = circle_dot(r.coords, vec2(circles[i - 1].radius, 0), circles[i], color);
+                    r = circle_dot(r.coords, vec2(circles[i - 1].radius, 0), circles[i], color, time);
                     
                     // Check if color is red
                     if (r.color.r > 0 && r.color.g == 0 && r.color.b == 0) {
@@ -134,6 +135,29 @@ fn main() {
                         c = vec4(min(c.r, r.color.r), min(c.g, r.color.g), min(c.b, r.color.b), min(c.a, r.color.a));                    
                     }
                 }
+            }
+            
+            // Plot the last dot for a given amount of frames
+            float time_des = time;
+            int samples = 10;
+            
+            while (time_des >= 0.2) {
+                for (int i = 0; i < size; ++i) {
+                    if (i == 0) {
+                        r = circle_dot(uv, vec2(0, 0), circles[0], color, time_des);                    
+                    } else {
+                        r = circle_dot(r.coords, vec2(circles[i - 1].radius, 0), circles[i], color, time_des);
+                    }
+                    
+                    // Last one
+                    if (i == size - 1) {
+                        if (r.color.r > 0 && r.color.g == 0 && r.color.b == 0) {
+                            c = r.color;
+                        }
+                    }
+                }
+                
+                time_des -= 0.2;
             }
             
             color = c;
@@ -152,6 +176,9 @@ fn main() {
 
     event_loop.run(move |event, _, control_flow| {
         let now = Instant::now();
+
+        let next_frame_time = Instant::now() + std::time::Duration::from_nanos(16_666_66);
+        *control_flow = glutin::event_loop::ControlFlow::WaitUntil(next_frame_time);
 
         match event {
             glutin::event::Event::WindowEvent { event, .. } => match event {
