@@ -2,7 +2,11 @@
 extern crate glium;
 
 use crate::glutin::dpi::PhysicalSize;
+use crate::glutin::platform::unix::x11::ffi::Complex;
 use glium::{glutin, Surface};
+use num::Complex;
+use std::f64::consts::PI;
+use std::ops::{Add, Mul};
 use std::time::Instant;
 
 #[derive(Copy, Clone)]
@@ -18,7 +22,7 @@ fn main() {
     let cb = glutin::ContextBuilder::new();
     let display = glium::Display::new(wb, cb, &event_loop).unwrap();
 
-    let start_time = Instant::now();
+    let mut start_time = Instant::now();
 
     let rect = vec![
         Vertex {
@@ -66,10 +70,13 @@ fn main() {
         uniform vec2 mouse;
         uniform float width;
         uniform float height;
+        //uniform CircleData { FourierCircle[8] circles; };
+        //uniform int circles_length;
         
         struct FourierCircle {
-            float angle;
-            float radius;
+            float frequency;
+            float phase;
+            float amplitude;
         };
         
         struct CircleDotReturn {
@@ -82,14 +89,15 @@ fn main() {
 
             float thickness = 0.02;
         
-            float angle = PI/4 * time_des;
+            float angle = (time_des * f_circle.frequency + f_circle.phase);
         
-            float circle = abs(length(uv - last_offset) - f_circle.radius) - thickness;
+            float circle = abs(length(uv - last_offset) - f_circle.amplitude) - thickness;
             circle = circle / fwidth(circle);
 
+            //vec2 uv_rot = vec2(uv.x + f_circle.amplitude * cos(angle), uv.y + f_circle.amplitude * sin(angle));
             vec2 uv_rot = vec2((uv.x - last_offset.x) * cos(angle) - (uv.y - last_offset.y) * sin(angle), (uv.x - last_offset.x) * sin(angle) + (uv.y - last_offset.y) * cos(angle));
             
-            float rot_circle = thickness - abs(length(uv_rot - vec2(f_circle.radius, 0.0)));
+            float rot_circle = thickness - abs(length(uv_rot - vec2(f_circle.amplitude, 0.0)));
             rot_circle = rot_circle / fwidth(rot_circle);
             
             vec3 fg = vec3(1.0, 0.0, 0.0);
@@ -110,23 +118,29 @@ fn main() {
         void main() {            
             vec2 uv = pos / normalize(vec2(height, width));
             
-            FourierCircle[3] circles;
-            circles[0] = FourierCircle(0, 0.4);
-            circles[1] = FourierCircle(0, 0.5);
-            circles[2] = FourierCircle(0, 0.2);
+            FourierCircle[8] circles;
             
-            int size = 3;
+            circles[0] = FourierCircle(3.0, 2.356194490192345, 0.10355339059327376);
+            circles[1] = FourierCircle(7.0, 2.3561944901923457, 0.6035533905932737);
+            circles[2] = FourierCircle(0, 0, 0.0);
+            circles[3] = FourierCircle(1.0, 0.0, 6.938893903907228e-18);
+            circles[4] = FourierCircle(2.0, 0.6101377437853474, 2.4220355306086514e-17);
+            circles[5] = FourierCircle(4.0, 0.8525869032260585, 5.2724156532840057e-17);
+            circles[6] = FourierCircle(5.0, 1.5707963267948966, 2.8449465006019636e-16);
+            circles[7] = FourierCircle(6.0, 1.3280935455684066, 2.4304557997560485e-16);
+
+            int size = 8;
             
             vec4 c;
             CircleDotReturn r;
             
             // Plot all circles with center dots
-            for (int i = 0; i < size; ++i) {
+            for (int i = 0; i < size-5; ++i) {
                 if (i == 0) {
                     r = circle_dot(uv, vec2(0, 0), circles[0], color, time);
                     c = r.color;                    
                 } else {
-                    r = circle_dot(r.coords, vec2(circles[i - 1].radius, 0), circles[i], color, time);
+                    r = circle_dot(r.coords, vec2(circles[i - 1].amplitude, 0), circles[i], color, time);
                     
                     // Check if color is red
                     if (r.color.r > 0 && r.color.g == 0 && r.color.b == 0) {
@@ -141,23 +155,25 @@ fn main() {
             float time_des = time;
             int samples = 10;
             
-            while (time_des >= 0.2) {
-                for (int i = 0; i < size; ++i) {
+            float dt = ((2 * PI) / size);
+            
+            while (time_des >= dt) {
+                for (int i = 0; i < size-5; ++i) {
                     if (i == 0) {
                         r = circle_dot(uv, vec2(0, 0), circles[0], color, time_des);                    
                     } else {
-                        r = circle_dot(r.coords, vec2(circles[i - 1].radius, 0), circles[i], color, time_des);
+                        r = circle_dot(r.coords, vec2(circles[i - 1].amplitude, 0), circles[i], color, time_des);
                     }
                     
                     // Last one
-                    if (i == size - 1) {
+                    if (i == size - 1-5) {
                         if (r.color.r > 0 && r.color.g == 0 && r.color.b == 0) {
                             c = r.color;
                         }
                     }
                 }
                 
-                time_des -= 0.2;
+                time_des -= dt;
             }
             
             color = c;
@@ -174,10 +190,34 @@ fn main() {
     };
     let mut mouse_position = [0.0, 0.0];
 
+    let points = vec![
+        (-0.5, 0.5),
+        (0.0, 0.5),
+        (0.5, 0.5),
+        (0.5, 0.0),
+        (0.5, -0.5),
+        (0.0, -0.5),
+        (-0.5, -0.5),
+        (-0.5, 0.0),
+    ];
+
+    let fourier = dft(&points);
+    println!("{:#?}", &fourier);
+
+    let uniforms = Uniforms {
+        circle_count: fourier.len() as i32,
+        circles: fourier,
+    };
+
+    let mut t: f32 = 0.0;
+    let dt: f32 = (2.0 * (PI as f32)) / (points.len() as f32);
+
     event_loop.run(move |event, _, control_flow| {
         let now = Instant::now();
 
-        let next_frame_time = Instant::now() + std::time::Duration::from_nanos(16_666_66);
+        t += dt;
+
+        let next_frame_time = Instant::now() + std::time::Duration::from_nanos(16_666_666);
         *control_flow = glutin::event_loop::ControlFlow::WaitUntil(next_frame_time);
 
         match event {
@@ -202,6 +242,22 @@ fn main() {
                 _ => return,
             },
             glutin::event::Event::MainEventsCleared => {
+                t += dt;
+
+                if t > 2.0 * (PI as f32) {
+                    t = 0.0;
+                }
+
+                let mut time_delta =
+                    ((now.duration_since(start_time).as_secs_f32()) / dt).round() * dt;
+
+                if time_delta >= (2.0 * PI) as f32 {
+                    time_delta = 0.0f32;
+                    start_time = Instant::now();
+                }
+
+                println!("{}", time_delta);
+
                 let mut target = display.draw();
                 target.clear_color(0.0, 0.0, 1.0, 1.0);
                 target
@@ -210,7 +266,7 @@ fn main() {
                         &index_buffer,
                         &program,
                         &uniform! {
-                            time: now.duration_since(start_time).as_secs_f32(),
+                            time: time_delta,
                             mouse: mouse_position,
                             width: display_size.width as f32,
                             height: display_size.height as f32
@@ -223,4 +279,58 @@ fn main() {
             _ => return,
         }
     });
+}
+
+#[derive(Debug, Copy, Clone)]
+struct FourierCircle {
+    frequency: f64,
+    phase: f64,
+    amplitude: f64,
+}
+
+struct Uniforms {
+    circle_count: i32,
+    circles: [FourierCircle; 24 as usize],
+}
+
+fn dft(points: &Vec<(f64, f64)>) -> [FourierCircle; 24] {
+    let mut X: [FourierCircle; 24] = [FourierCircle {
+        amplitude: 0.0,
+        frequency: 0.0,
+        phase: 0.0,
+    }; 24];
+    let N = points.len();
+
+    for k in 0..N {
+        let mut sum: Complex<f64> = Complex::new(0.0, 0.0);
+
+        for n in 0..N {
+            let (x, y) = points[n];
+            let argument = (2.0 * PI * (k as f64) * (n as f64)) / (N as f64);
+
+            //println!("{} PHI for  k {} +  n {}", argument, k, n);
+
+            let res = Complex::new(x, y).mul(Complex::new(argument.cos(), -argument.sin()));
+
+            //println!("{:?}", res);
+
+            sum = Complex::new(sum.re + res.re, sum.im + res.im);
+        }
+
+        sum.re = sum.re / (N as f64);
+        sum.im = sum.im / (N as f64);
+
+        println!("{:?}", sum);
+        println!("Real {:?}", sum.re);
+        println!("Img {:?}", sum.im);
+        println!("Atan2 {:?}", sum.re.atan2(sum.im));
+
+        X[k] = FourierCircle {
+            frequency: k as f64,
+            phase: sum.im.atan2(sum.re),
+            amplitude: (sum.re * sum.re + sum.im * sum.im).sqrt(),
+        };
+    }
+
+    X
 }
