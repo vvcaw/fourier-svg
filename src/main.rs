@@ -3,23 +3,29 @@ use num::Complex;
 
 struct Model {
     fourier: Vec<FourierCoefficients>,
+    draw: Draw,
+    active_samples: Vec<(f32, f32)>,
     dt: f32,
 }
 
 fn main() {
-    nannou::app(model).event(event).simple_window(view).run();
+    nannou::app(model)
+        .update(update)
+        .event(event)
+        .simple_window(view)
+        .run();
 }
 
 fn model(_app: &App) -> Model {
     let points = vec![
-        (-40.0, 40.0),
-        (0.0, 40.0),
-        (40.0, 40.0),
-        (40.0, 0.0),
-        (40.0, -40.0),
-        (0.0, -40.0),
-        (-40.0, -40.0),
-        (-40.0, 0.0),
+        (-220.0, 220.0),
+        (0.0, 220.0),
+        (220.0, 220.0),
+        (220.0, 0.0),
+        (220.0, -220.0),
+        (0.0, -220.0),
+        (-220.0, -220.0),
+        (-220.0, 0.0),
     ];
 
     let mut series = dft(&points);
@@ -28,38 +34,71 @@ fn model(_app: &App) -> Model {
     Model {
         fourier: series,
         dt: (2.0 * PI) / (points.len() as f32),
+        draw: Draw::new(),
+        active_samples: vec![],
     }
+}
+
+fn update(app: &App, model: &mut Model, _update: Update) {
+    // Calculate time in multiples of `dt`, as we should only render the line at the sampled points to get the correct path back out
+    let t = ((app.elapsed_frames() as f32) * model.dt) % (2.0 * PI);
+
+    // Draw epicycles
+    let sample = draw_epicycles(&model.draw, &model.fourier, t);
+
+    model.active_samples.push(sample);
+
+    // Get number of drawn samples at current point in time
+    let current_sample_count = (t / model.dt).ceil().to_usize().unwrap();
+
+    // Draw all samples
+    draw_samples(&model.draw, &model.active_samples, current_sample_count);
 }
 
 fn event(_app: &App, _model: &mut Model, _event: Event) {}
 
 fn view(app: &App, model: &Model, frame: Frame) {
-    let draw = app.draw();
+    let draw = &model.draw;
 
-    // #373F51 -> Bg
-    // #E9E6FF -> Circles
-    // #58A4B0 -> Trail
     draw.background().color(rgb(0.22, 0.25, 0.32));
-
-    // Calculate time in multiples of `dt`, as we should only render the line at the sampled points to get the correct path back out
-    let t = ((app.elapsed_frames() as f32) * model.dt) % (2.0 * PI);
-
-    // Draw epicycles
-    draw_epicycles(&draw, &model.fourier, t);
 
     draw.to_frame(app, &frame).unwrap();
 }
 
-fn draw_epicycles(draw: &Draw, fourier: &Vec<FourierCoefficients>, time: f32) {
+fn draw_samples(draw: &Draw, points: &Vec<(f32, f32)>, current_sample_count: usize) {
+    for i in 1..(current_sample_count + 1) {
+        let (last_x, last_y) = points[i - 1];
+
+        // Use first vertex if path is filled entirely
+        let (current_x, current_y) = if i == points.len() {
+            points[0]
+        } else {
+            points[i]
+        };
+
+        draw.line()
+            .points(
+                Point2::new(last_x, last_y),
+                Point2::new(current_x, current_y),
+            )
+            .start_cap_round()
+            .end_cap_round()
+            .stroke_weight(4.0)
+            .color(rgb(0.35f32, 0.64f32, 0.69f32));
+    }
+}
+
+fn draw_epicycles(draw: &Draw, fourier: &Vec<FourierCoefficients>, time: f32) -> (f32, f32) {
     let mut x = 0.0;
     let mut y = 0.0;
 
-    for FourierCoefficients {
-        frequency,
-        amplitude,
-        phase,
-    } in fourier
-    {
+    for i in 0..fourier.len() {
+        let FourierCoefficients {
+            frequency,
+            amplitude,
+            phase,
+        } = fourier[i];
+
         let angle = frequency * time + phase;
 
         let x_with_offset = x + angle.cos() * amplitude;
@@ -69,21 +108,23 @@ fn draw_epicycles(draw: &Draw, fourier: &Vec<FourierCoefficients>, time: f32) {
         draw.ellipse()
             .x_y(x, y)
             .no_fill()
-            .stroke_weight(8.0)
-            .radius(*amplitude)
-            .stroke_color(rgb(0.91f32, 0.90f32, 1.0f32));
+            .stroke_weight(4.0)
+            .radius(amplitude)
+            .stroke_color(rgba(0.91f32, 0.90f32, 1.0f32, 0.2));
 
         // Draw line to moving dot
-        draw.line()
+        draw.arrow()
             .points(Point2::new(x, y), Point2::new(x_with_offset, y_with_offset))
             .start_cap_round()
             .end_cap_round()
-            .stroke_weight(8.0)
+            .stroke_weight(4.0)
             .color(rgb(0.91f32, 0.90f32, 1.0f32));
 
         x = x_with_offset;
         y = y_with_offset;
     }
+
+    (x, y)
 }
 
 /// Hold data for the calculated coefficients
@@ -110,6 +151,10 @@ fn dft(points: &Vec<(f32, f32)>) -> Vec<FourierCoefficients> {
 
                 sum = sum + res;
             }
+
+            // This makes the circles have the correct relative size
+            sum.im = sum.im / (points.len() as f32);
+            sum.re = sum.re / (points.len() as f32);
 
             FourierCoefficients {
                 frequency: k as f32,
