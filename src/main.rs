@@ -46,10 +46,15 @@ fn update(app: &App, model: &mut Model, _update: Update) {
     // Draw epicycles
     let sample = draw_epicycles(&model.draw, &model.fourier, t);
 
-    model.active_samples.push(sample);
-
     // Get number of drawn samples at current point in time
     let current_sample_count = (t / model.dt).ceil().to_usize().unwrap();
+
+    // Reset the samples after one full iteration
+    if current_sample_count == 0 {
+        model.active_samples.clear();
+    }
+
+    model.active_samples.push(sample);
 
     // Draw all samples
     draw_samples(&model.draw, &model.active_samples, current_sample_count);
