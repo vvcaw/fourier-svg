@@ -1,11 +1,29 @@
+use lazy_static::lazy_static;
 use nannou::prelude::*;
 use num::Complex;
+use std::fs;
+
+lazy_static! {
+    pub static ref PTS: Vec<(f32, f32)> = parse();
+}
 
 struct Model {
     fourier: Vec<FourierCoefficients>,
     draw: Draw,
     active_samples: Vec<(f32, f32)>,
     dt: f32,
+}
+
+fn parse() -> Vec<(f32, f32)> {
+    let mut points = vec![];
+
+    let svg_data = fs::read_to_string("fourier.txt").unwrap();
+    for line in svg_data.split("\n") {
+        let (x, y) = line.split_once(" ").unwrap();
+        points.push((x.parse::<f32>().unwrap(), y.parse::<f32>().unwrap()));
+    }
+
+    points
 }
 
 fn main() {
@@ -17,23 +35,12 @@ fn main() {
 }
 
 fn model(_app: &App) -> Model {
-    let points = vec![
-        (-220.0, 220.0),
-        (0.0, 220.0),
-        (220.0, 220.0),
-        (220.0, 0.0),
-        (220.0, -220.0),
-        (0.0, -220.0),
-        (-220.0, -220.0),
-        (-220.0, 0.0),
-    ];
-
-    let mut series = dft(&points);
+    let mut series = dft(&PTS);
     series.sort_by(|c0, c1| c1.amplitude.partial_cmp(&c0.amplitude).unwrap());
 
     Model {
         fourier: series,
-        dt: (2.0 * PI) / (points.len() as f32),
+        dt: (2.0 * PI) / (PTS.len() as f32),
         draw: Draw::new(),
         active_samples: vec![],
     }
@@ -57,7 +64,12 @@ fn update(app: &App, model: &mut Model, _update: Update) {
     model.active_samples.push(sample);
 
     // Draw all samples
-    draw_samples(&model.draw, &model.active_samples, current_sample_count);
+    draw_samples(
+        &model.draw,
+        &model.active_samples,
+        current_sample_count,
+        model.fourier.len(),
+    );
 }
 
 fn event(_app: &App, _model: &mut Model, _event: Event) {}
@@ -70,12 +82,17 @@ fn view(app: &App, model: &Model, frame: Frame) {
     draw.to_frame(app, &frame).unwrap();
 }
 
-fn draw_samples(draw: &Draw, points: &Vec<(f32, f32)>, current_sample_count: usize) {
-    for i in 1..(current_sample_count + 1) {
+fn draw_samples(
+    draw: &Draw,
+    points: &Vec<(f32, f32)>,
+    current_sample_count: usize,
+    max_sample_count: usize,
+) {
+    for i in 1..current_sample_count {
         let (last_x, last_y) = points[i - 1];
 
         // Use first vertex if path is filled entirely
-        let (current_x, current_y) = if i == points.len() {
+        let (current_x, current_y) = if i == (max_sample_count - 1) {
             points[0]
         } else {
             points[i]
