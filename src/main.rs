@@ -1,7 +1,7 @@
 use lazy_static::lazy_static;
 use nannou::prelude::*;
 use num::Complex;
-use std::fs;
+use svg2pts_lib::get_path_from_file;
 
 lazy_static! {
     pub static ref PTS: Vec<(f32, f32)> = parse();
@@ -15,15 +15,10 @@ struct Model {
 }
 
 fn parse() -> Vec<(f32, f32)> {
-    let mut points = vec![];
-
-    let svg_data = fs::read_to_string("fourier.txt").unwrap();
-    for line in svg_data.split("\n") {
-        let (x, y) = line.split_once(" ").unwrap();
-        points.push((x.parse::<f32>().unwrap(), y.parse::<f32>().unwrap()));
-    }
-
-    points
+    get_path_from_file("fourier.svg", 1.0, 850, 0.0)
+        .iter()
+        .map(|(x, y)| (*x as f32, *y as f32))
+        .collect()
 }
 
 fn main() {

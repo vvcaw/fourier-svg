@@ -1,0 +1,3 @@
+[submodule "lib/svg2pts"]
+	path = lib/svg2pts
+	url = https://github.com/vvcaw/svg2pts.git
