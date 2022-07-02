@@ -36,6 +36,11 @@ fn main() {
 
 fn model(_app: &App) -> Model {
     let mut series = dft(&PTS);
+
+    // Remove constant term (offset from (0, 0))
+    series.remove(0);
+
+    // Sort for better looks
     series.sort_by(|c0, c1| c1.amplitude.partial_cmp(&c0.amplitude).unwrap());
 
     Model {
