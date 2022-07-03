@@ -10,3 +10,4 @@ svg2pts = { path = "./lib/svg2pts" }
 nannou = "0.18.1"
 lazy_static = "1.4.0"
 num = "0.4.0"
+structopt = "0.3"

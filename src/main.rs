@@ -1,10 +1,23 @@
 use lazy_static::lazy_static;
 use nannou::prelude::*;
 use num::Complex;
+use std::path::PathBuf;
+use structopt::StructOpt;
 use svg2pts_lib::get_path_from_file;
 
+#[derive(StructOpt, Debug)]
+#[structopt(name = "fourier-svg")]
+pub struct Opt {
+    /// Distance between points sampled from svg
+    #[structopt(short, long, default_value = "5.0")]
+    distance: f64,
+    /// Input svg file
+    #[structopt(short, long, parse(from_os_str))]
+    file: PathBuf,
+}
+
 lazy_static! {
-    pub static ref PTS: Vec<(f32, f32)> = parse();
+    pub static ref OPT: Opt = Opt::from_args();
 }
 
 struct Model {
@@ -14,8 +27,8 @@ struct Model {
     dt: f32,
 }
 
-fn parse() -> Vec<(f32, f32)> {
-    get_path_from_file("fourier.svg", 1.0, 850, 0.0)
+fn parse_svg(filename: &str, point_distance: f64) -> Vec<(f32, f32)> {
+    get_path_from_file(filename, 0, point_distance)
         .iter()
         .map(|(x, y)| (*x as f32, *y as f32))
         .collect()
@@ -30,7 +43,8 @@ fn main() {
 }
 
 fn model(_app: &App) -> Model {
-    let mut series = dft(&PTS);
+    let points = parse_svg(OPT.file.to_str().unwrap(), OPT.distance);
+    let mut series = dft(&points);
 
     // Remove constant term (offset from (0, 0))
     series.remove(0);
@@ -40,7 +54,7 @@ fn model(_app: &App) -> Model {
 
     Model {
         fourier: series,
-        dt: (2.0 * PI) / (PTS.len() as f32),
+        dt: (2.0 * PI) / (points.len() as f32),
         draw: Draw::new(),
         active_samples: vec![],
     }
