@@ -50,8 +50,13 @@ fn update(app: &App, model: &mut Model, _update: Update) {
     // Calculate time in multiples of `dt`, as we should only render the line at the sampled points to get the correct path back out
     let t = ((app.elapsed_frames() as f32) * model.dt) % (2.0 * PI);
 
+    let win = app.window_rect();
+
+    // Evaluate resolution from mouseX position
+    let resolution = (app.mouse.x + win.right()) / win.w();
+
     // Draw epicycles
-    let sample = draw_epicycles(&model.draw, &model.fourier, t);
+    let sample = draw_epicycles(&model.draw, &model.fourier, t, resolution);
 
     // Get number of drawn samples at current point in time
     let current_sample_count = (t / model.dt).ceil().to_usize().unwrap();
@@ -110,11 +115,21 @@ fn draw_samples(
     }
 }
 
-fn draw_epicycles(draw: &Draw, fourier: &Vec<FourierCoefficients>, time: f32) -> (f32, f32) {
+fn draw_epicycles(
+    draw: &Draw,
+    fourier: &Vec<FourierCoefficients>,
+    time: f32,
+    resolution: f32,
+) -> (f32, f32) {
     let mut x = 0.0;
     let mut y = 0.0;
 
-    for i in 0..fourier.len() {
+    // Render epicycles with given resolution
+    for i in 0..((fourier.len() as f32) * resolution)
+        .ceil()
+        .to_usize()
+        .unwrap()
+    {
         let FourierCoefficients {
             frequency,
             amplitude,
