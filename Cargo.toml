@@ -1,5 +1,5 @@
 [package]
-name = "glium-shader-template"
+name = "fourier-svg"
 version = "0.1.0"
 edition = "2021"
 
