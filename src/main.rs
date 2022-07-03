@@ -125,7 +125,7 @@ fn draw_epicycles(
     let mut y = 0.0;
 
     // Render epicycles with given resolution
-    for i in 0..((fourier.len() as f32) * resolution)
+    for i in 0..((fourier.len() as f32) * resolution.clamp(0.0, 1.0))
         .ceil()
         .to_usize()
         .unwrap()
