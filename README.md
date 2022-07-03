@@ -1,2 +1,2 @@
-# glium-shader-template
-A simple template for working with glium and glsl shaders.
+# fourier-svg
+Illustrating how to approximate svg files using the discrete fourier transform.
