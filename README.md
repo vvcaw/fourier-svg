@@ -1,5 +1,5 @@
 # fourier-svg
-Illustrating how to approximate svg files using the discrete fourier transform. This is built using [nannou](https://github.com/nannou-org/nannou), an awesome creative coding framework.
+Illustrating how to approximate svg files using the discrete fourier transform. This is built using [nannou](https://github.com/nannou-org/nannou), an awesome creative coding framework. Moving the mouse on the x-axis from left to right determines the amount of epicycles being drawn (the resolution).
 ![image](https://user-images.githubusercontent.com/57096338/177039807-abe37d9e-012f-407a-911f-d1200cde5a80.png)
 
 ## How to run
